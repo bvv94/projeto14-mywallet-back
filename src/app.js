@@ -8,6 +8,7 @@ import { v4 as uuid } from "uuid"
 
 // Criação do servidor
 const app = express()
+const PORT = 5000
 
 // Configurações
 app.use(express.json())
@@ -15,15 +16,26 @@ app.use(cors())
 dotenv.config()
 
 // Conexão DB
-const mongoClient = new MongoClient(process.env.DATABASE_URL)
-try {
-    await mongoClient.connect()
-    console.log('MongoDB conectado!')
-} catch (err) {
-    console.log(err.message)
-}
 
-const db = mongoClient.db()
+let db;
+const mongoClient = new MongoClient(process.env.DATABASE_URL);
+
+mongoClient.connect()
+    .then(() => db = mongoClient.db())
+    .catch((err) => console.log(err.message))
+    
+// let db
+// console.log(process.env.DATABASE_URL)
+// const mongoClient = new MongoClient(process.env.DATABASE_URL)
+
+// try {
+//     await mongoClient.connect()
+//     console.log('MongoDB conectado!')
+// } catch (err) {
+//     console.log(`MongoDB NÃO conectado, erro :${err.message}`)
+// }
+
+// db = mongoClient.db()
 
 //Schemas
 const userSchema = joi.object({
@@ -109,11 +121,11 @@ app.post("/nova-transacao/:tipo", async (req, res) => {
     }
 
     try {
-        const session = await db.collection("session").findOne({token})
+        const session = await db.collection("session").findOne({ token })
         if (!session) return res.sendStatus(401)
 
-        await db.collection("transactions").insertOne({...req.body, userId: session._id})
-        
+        await db.collection("transactions").insertOne({ ...req.body, userId: session._id })
+
     }
     catch (err) {
         res.status(500).send(err.message)
@@ -121,17 +133,17 @@ app.post("/nova-transacao/:tipo", async (req, res) => {
 
 })
 
-app.get("/home", async(req, res) => {
+app.get("/home", async (req, res) => {
     const { authorization } = req.headers
     const token = authorization?.replace("Bearer ", "")
-    
+
     if (!token) return res.sendStatus(401)
 
     try {
-        const session = await db.collection("session").findOne({token})
+        const session = await db.collection("session").findOne({ token })
         if (!session) return res.sendStatus(401)
 
-        const transactions = await db.collection("transactions").find({userId: session.userId}).toArray()
+        const transactions = await db.collection("transactions").find({ userId: session.userId }).toArray()
         res.send(transactions)
     }
     catch (err) {
@@ -146,5 +158,4 @@ app.get("/home", async(req, res) => {
 
 
 // Deixa o app escutando, à espera de requisições
-const PORT = 5000
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`))
