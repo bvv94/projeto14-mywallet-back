@@ -23,23 +23,15 @@ const mongoClient = new MongoClient(process.env.DATABASE_URL);
 mongoClient.connect()
     .then(() => db = mongoClient.db())
     .catch((err) => console.log(err.message))
-    
-// let db
-// console.log(process.env.DATABASE_URL)
-// const mongoClient = new MongoClient(process.env.DATABASE_URL)
-
-// try {
-//     await mongoClient.connect()
-//     console.log('MongoDB conectado!')
-// } catch (err) {
-//     console.log(`MongoDB NÃO conectado, erro :${err.message}`)
-// }
-
-// db = mongoClient.db()
 
 //Schemas
 const userSchema = joi.object({
     name: joi.string().min(3).required(),
+    email: joi.string().min(3).required().email(),
+    password: joi.string().min(3).required()
+})
+
+const loginSchema = joi.object({
     email: joi.string().min(3).required().email(),
     password: joi.string().min(3).required()
 })
@@ -57,6 +49,8 @@ app.post("/cadastro", async (req, res) => {
 
     const validation = userSchema.validate(req.body)
 
+    console.log("entrou na rota /cadastro")
+
     if (validation.error) {
         return res.status(422).send(validation.error.details.map(detail => detail.message))
     }
@@ -69,7 +63,7 @@ app.post("/cadastro", async (req, res) => {
         const hash = bcrypt.hashSync(password, 10)
 
         await db.collection("users").insertOne({ name, email, password: hash })
-        res.status(201)
+        res.status(201).send("Usuário cadastrado")
     }
     catch (err) {
         res.status(500).send(err.message)
@@ -80,7 +74,7 @@ app.post("/", async (req, res) => {
     const { email, password } = req.body
 
     //validação com joi se email e senha são válidos
-    const validation = userSchema.validate(req.body, { abortEarly: false })
+    const validation = loginSchema.validate(req.body, { abortEarly: false })
 
     if (validation.error) {
         return res.status(422).send(validation.error.details.map(detail => detail.message))
@@ -93,8 +87,6 @@ app.post("/", async (req, res) => {
 
         const rightpassword = bcrypt.compareSync(password, user.password)
         if (!rightpassword) return res.status(401).send("Senha inválida!")
-
-
 
         const token = uuid()
         await db.collection("session").insertOne({ token, userId: user._id })
@@ -157,5 +149,6 @@ app.get("/home", async (req, res) => {
 
 
 
+
 // Deixa o app escutando, à espera de requisições
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`))
+app.listen(process.env.PORT, () => console.log(`Servidor rodando na porta ${process.env.PORT}`))
